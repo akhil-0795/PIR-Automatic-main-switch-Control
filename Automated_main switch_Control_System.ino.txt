@@ -1,0 +1,90 @@
+#define PIR_PIN 14       // D5
+#define RELAY_PIN 12     // D6
+#define TRIG_PIN 13      // D7
+#define ECHO_PIN 15      // D8
+
+unsigned long lastOccupiedTime = 0;
+
+const unsigned long OFF_DELAY = 300000; // 5 minutes
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(PIR_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Relay OFF initially (active-LOW relay)
+  digitalWrite(RELAY_PIN, HIGH);
+
+  Serial.println("Automatic Main Switch Control System");
+  Serial.println("System Started");
+}
+
+long getDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+
+  if (duration == 0) {
+    return -1;
+  }
+
+  long distance = duration * 0.034 / 2;
+
+  return distance;
+}
+
+void loop() {
+
+  int motion = digitalRead(PIR_PIN);
+  long distance = getDistance();
+
+  bool occupancyDetected = false;
+
+  // PIR detects movement
+  if (motion == HIGH) {
+    occupancyDetected = true;
+    Serial.println("PIR: Motion Detected");
+  }
+
+  // Ultrasonic detects nearby object/person
+  if (distance > 0 && distance < 100) {
+    occupancyDetected = true;
+
+    Serial.print("Ultrasonic Distance: ");
+    Serial.print(distance);
+    Serial.println(" cm");
+  }
+
+  // Occupancy detected
+  if (occupancyDetected) {
+
+    digitalWrite(RELAY_PIN, LOW);
+
+    lastOccupiedTime = millis();
+
+    Serial.println("OCCUPANCY DETECTED - MAIN POWER ON");
+  }
+
+  // No occupancy for 5 minutes
+  else {
+
+    if (millis() - lastOccupiedTime >= OFF_DELAY) {
+
+      digitalWrite(RELAY_PIN, HIGH);
+
+      Serial.println("NO OCCUPANCY FOR 5 MINUTES - MAIN POWER OFF");
+    }
+  }
+
+  delay(500);
+}
